@@ -33,7 +33,12 @@ function check_node_deps() {
 
 function dev_server() {
   cd public
-  exec python -m SimpleHTTPServer 9292
+  ret=`python -c 'import sys; print("%i" % (sys.hexversion<0x03000000))'`
+  if [ $ret -eq 0 ]; then
+    exec python -m http.server 9292
+  else 
+    exec python -m SimpleHTTPServer 9292
+  fi
 }
 
 function livereload_server() {
@@ -179,9 +184,9 @@ function create_table() {
       > ${table_dir}/table_info.json
 
     echo -n "Waiting for table creation..."
-    aws --profile admin dynamodb describe-table --table-name "$table_name" > ${table_dir}/table_info.json
+    aws --profile $profile dynamodb describe-table --table-name "$table_name" > ${table_dir}/table_info.json
     while [[ "$(support/jsed.py ${table_dir}/table_info.json 'Table.TableStatus')" != "ACTIVE" ]]; do
-      aws --profile admin dynamodb describe-table --table-name "$table_name" > ${table_dir}/table_info.json
+      aws --profile $profile dynamodb describe-table --table-name "$table_name" > ${table_dir}/table_info.json
       echo -n .
     done
     echo "...done!"
@@ -259,6 +264,7 @@ function create_lambda_service() {
     aws --profile $profile lambda create-function \
       --function-name ${function_name} \
       --role ${role_arn} \
+      --runtime nodejs4.3 \
       --zip-file "fileb://services/archive.zip" \
       --handler "index.${function_name}" \
       --cli-input-json "file://${service_dir}/config.json" \
